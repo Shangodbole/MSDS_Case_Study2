@@ -1,6 +1,6 @@
 # MSDS_Casestudy2
 MSDS 6306: Doing Data Science Case study 2
-
+Prepared by Anand R and Shantanu G
 #Due: Sunday, December 9 11:59pm. 
 
 #Description: DDSAnalytics is an analytics company that specializes in talent management solutions for Fortune 1000 companies. 
