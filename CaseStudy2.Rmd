@@ -1,7 +1,7 @@
 ---
 title: "CaseStudy2"
 author: "Anand R and Shantanu G"
-date: "November 22, 2018"
+date: "December 2, 2018"
 output: 
   html_document:
     keep_md: yes
@@ -106,24 +106,6 @@ dfTrain$WorkLifeBalance <- as.factor(dfTrain$WorkLifeBalance)
 
 # finally assigning the data to a data frame which has clean data for model.
 
-corr_matrix=cor(dfTrain[sapply(dfTrain, is.numeric)])
-
-#This function searches through a correlation matrix and returns a vector of 
-#integers corresponding to columns to remove to reduce pair-wise correlations.
-
-highCorr = findCorrelation(corr_matrix, cutoff=0.50)
-
-highCorr
-#10 11 and 12
-
-#Correlation diagram
-
-pairs (~ MonthlyIncome + MonthlyRate + HourlyRate ,
-       data = dfTrain ,col=4)
-
-pairs (~EducationField + EnvironmentSatisfaction #+ Gender,
-      ,data = dfTrain ,col=6)
-
 # This optimizes the training model 
 trainc <- trainControl(method="repeatedcv", number=5, repeats=5)
 
@@ -134,7 +116,7 @@ fitknn=train(Attrition~., dfTrain, method="knn", trControl=trainc)
 impvars=varImp(fitknn, scale=FALSE)
 
 impvars
-head(dfTrain)
+
 ```
 
 #### Elimination of columns not affecting the outcome for training set
@@ -152,27 +134,60 @@ e. Rand is a column generated and unused in the model
 
 * No NA columns found in data
 
-
-```{r}
-
-#Using Pairs comparison to find correlation
-pairs (~ MonthlyIncome + MonthlyRate + HourlyRate ,
-       data = dfTrain)
-
-pairs (~Education +EnvironmentSatisfaction + JobInvolvement,
-       data = dfTrain)
-```
 * Scatter plots on finding correlation between attributes
 
 ####1.  Correlation between Monthly Income, Monthly Rate and Hourly Rate
 
 ####2.  Correlation between Education, EnvironmentSatisfacton, JobInvolvement
 
-#### GG Scatter plot for Income and Worklife balance
 ```{r}
+
+#This function searches through a correlation matrix and returns a vector of 
+corr_matrix=cor(dfTrain[sapply(dfTrain, is.numeric)])
+
+#integers corresponding to columns to remove to reduce pair-wise correlations.
+
+highCorr = findCorrelation(corr_matrix, cutoff=0.50)
+
+highCorr
+
+#Using Pairs comparison to find correlation
+#Correlation diagram
+
+pairs (~ MonthlyIncome + MonthlyRate + HourlyRate ,
+       data = dfTrain ,col=4, main="fig1: Correlation-Income, MonthlyRate and Hourly rate")
+
+pairs (~EducationField + EnvironmentSatisfaction #+ Gender,
+      ,data = dfTrain ,col=6, main="fig2: Correlation-EducationField and Environment")
+
+```
+
+* The Correlation diagrams do not show any significant correlation in the scatter diagram and are good candidates for model.
+
+#### Finding the core columns for the final knn classification model.
+```{r}
+# This optimizes the training model 
+trainc <- trainControl(method="repeatedcv", number=5, repeats=5)
+
+#Creates a model for the learning machine which can be used for predictions on new data.
+
+fitknn=train(Attrition~., dfTrain, method="knn", trControl=trainc)
+
+impvars=varImp(fitknn, scale=FALSE)
+
+impvars
+
+```
+
+#### Scatter plots association with Attrition
+1. fig 3: Scatter plot on Income and Work Life Balance with Attrition
+2. fig 4: Scatter plot on Education and Department with Attrition
+
+```{r}
+
 gg1 <- ggplot(dfTrain, aes(x=WorkLifeBalance,                                     y=MonthlyIncome, color = Attrition)) + 
        geom_point() + 
-         labs(subtitle="Income vs Work Life Balance", 
+         labs(subtitle="fig3:Income vs Work Life Balance", 
           y="Income", 
           x="WorkLife Balance", 
           title="Scatterplot")
@@ -182,7 +197,7 @@ plot(gg1)
 # Attrition per Education & department 
 gg2 <- ggplot(dfTrain, aes(x=Education, y=Department, color = Attrition)) + 
   geom_point() + 
-    labs(subtitle="Education and Department", 
+    labs(subtitle="fig4:Education and Department", 
        y="Department", 
        x="Education", 
        title="Scatterplot")
@@ -200,7 +215,7 @@ Following are violin plots that show attrition
 
 gg3 <- ggplot(dfTrain,aes(Attrition,MonthlyIncome, fill=Attrition, color=Attrition))+
    geom_violin()+ 
-     labs(subtitle="Attrition and Monthly Income",
+     labs(subtitle="fig5:Attrition and Monthly Income",
        y="Attrition",       x="MonthlyIncome",
        title="Violin")
 plot(gg3)
@@ -208,14 +223,13 @@ plot(gg3)
 #scatter plot between monthly income, JobLevel and attrition
 gg4 <- ggplot(training, aes(x=training$MonthlyIncome, y=training$JobLevel, color = Attrition)) + 
   geom_point() + 
-    labs(subtitle="Monthly Income and Joblevel",
+    labs(subtitle="fig6:Monthly Income and Joblevel",
        y="JobLevel",
        x="Monthly Income",
        title="Scatterplot")
 plot(gg4)
 
 ```
-
 #Various plots to show Attrition and explanatory variables such as Income, Age, Years of service, Marital status and Years in service with company
 1. Bar plot on Years at company and Income level
 2. Box plot on Age and attrition
@@ -229,7 +243,7 @@ grad <- scales::seq_gradient_pal("blue", "blue")(seq(0,1,length.out=100))
 
 ggplot(dfTrain, aes(x=reorder(dfTrain$YearsAtCompany, -dfTrain$YearsAtCompany), y=dfTrain$MonthlyIncome, fill=Attrition)) +
   geom_bar(stat='identity', position='dodge') +
-  labs(title=" Years at company and income level", x="Years in service", y="Monthly Income") +
+  labs(title=" fig7: Years at company and income level", x="Years in service", y="Monthly Income") +
   theme(plot.title = element_text(hjust=0.5), axis.text.x=element_text(angle=90, size=7), 
         legend.position="none") +     
   scale_fill_manual(values=grad)
@@ -237,7 +251,7 @@ ggplot(dfTrain, aes(x=reorder(dfTrain$YearsAtCompany, -dfTrain$YearsAtCompany), 
 #boxplot between Age and attrition
 gg5 <- ggplot(training, aes(x=Attrition, y=Age, color = Attrition)) + 
   geom_boxplot() + 
-    labs(subtitle="Age and Attrition",
+    labs(subtitle="fig8:Age and Attrition",
        y="Age",
        x="Attrition",
        title="Box Plot")
@@ -247,14 +261,14 @@ plot(gg5)
 ggplot(dfTrain, aes(x=YearsAtCompany, y=Age, color=YearsAtCompany)) + 
   geom_point(size=1.3, na.rm=TRUE) + 
  # geom_smooth(method=lm, na.rm=TRUE, se=FALSE, color="blue") +
-  labs(title="Years at company and Age", x="Years at Company", y="Age of Employee") +
+  labs(title="fig9:Years at company and Age", x="Years at Company", y="Age of Employee") +
   theme(plot.title = element_text(hjust=0.5), legend.position="none") +
   scale_color_gradient(low = "#ffbf00", high = "blue")
 
 # Years Since Last promotion and Attrition
 gg6 <- ggplot(dfTrain, aes(y=YearsSinceLastPromotion, x=Attrition, color = Attrition)) + 
   geom_boxplot() + 
-    labs(subtitle="Years Since Last promotion and Attrition",
+    labs(subtitle="fig10:Years Since Last promotion and Attrition",
        y="Years Since last promotion",
        x="Attrition",
        title="Box Plot")
@@ -264,7 +278,7 @@ plot(gg6)
 
 gg7 <- ggplot(dfTrain, aes(x=MaritalStatus, y=Attrition, color = Attrition)) + 
   geom_jitter() + 
-    labs(subtitle="Marital Status and Attrition",
+    labs(subtitle="fig11:Marital Status and Attrition",
        y="Attrition",
        x="Marital Status",
        title="Jitter Plot")
@@ -299,20 +313,27 @@ dfts$StockOptionLevel <- as.integer(dfts$StockOptionLevel)
 # Appropriate model after getting the results
 results = class::knn(dftr[,c(2,4,5,6,7,8,9,10,11,12)], dfts[,c(2,4,5,6,7,8,9,10,11,12)], dftr$Attrition, k=kval)
 # Predict the data thus trained with test set
-dfts$predictedAttrition <- results
+dfts$PredictedAttrition <- results
   
-table(dfts$Attrition,dfts$predictedAttrition)
+table(dfts$Attrition,dfts$PredictedAttrition)
   
 #Confushion Matrix creation
-cm <- caret::confusionMatrix(table(dfts$Attrition,dfts$predictedAttrition))
+cm <- caret::confusionMatrix(table(dfts$Attrition,dfts$PredictedAttrition))
+
+cmhd<-head(cm$table)
+
+kable(cmhd, row.names=FALSE, caption="Table 1: Confushion Matrix showing prediction") %>% kable_styling(bootstrap_options="bordered")
+
 cm
-model_accuracy_knn=sum(dfts$predictedAttrition == dfts$Attrition)/nrow(dfts)
+
+model_accuracy_knn=sum(dfts$PredictedAttrition == dfts$Attrition)/nrow(dfts)
 
 model_accuracy_knn
 
 #Around 83 percent
 
-dfPreds <- data.frame(dfts$ID,dfts$predictedAttrition)
+dfPreds <- data.frame(dfts$ID,dfts$PredictedAttrition)
+colnames(dfPreds) <- c("ID","PredictedAttrition")
 write.csv(dfPreds, file="dfPreds.csv")
 
 ```
