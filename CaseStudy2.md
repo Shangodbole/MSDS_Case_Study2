@@ -635,7 +635,7 @@ write.csv(dfPreds, file="dfPreds.csv")
 
 ###Conclusion:
 
-Model accuracy is .833 ie 83.3% of the times the data will predict attrition of employee correctly.
+Model accuracy is .86 ie 86% of the times the data will predict attrition of employee correctly.
 Further it is only good with the current data set and trends within the data. If the data composition changes over time, the program would compute a different set that would predict the outcome differently.
 
 =======
