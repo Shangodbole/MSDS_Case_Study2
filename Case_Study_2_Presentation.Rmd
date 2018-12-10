@@ -1,0 +1,478 @@
+---
+title: "Case_Study_2_Presentation"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo = TRUE}
+
+# Load necessary libraries
+#install.packages("caret")
+#install.packages(mlr)
+library(mlr)
+library(caret)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+library(plyr)
+library(tidyverse)
+library(RCurl)
+
+set.seed(3244)
+
+```
+
+#### <span style="color:INDIANRED"><b>Background</span></b>
+We are from DDSAnalytics a talent management company specializing in talent management solutions. We do solutions for workforce planning, employee training programs, identifying high-potential employees and reducing/preventing voluntary employee turnover (attrition).
+
+
+### About our client
+
+Our client Anheuser-Busch is one of the top beer producers in the world with the following vitals to boast. Head quartered in St. Louis MO, the company brews more than 100 brands of beers with flagship brands Budweiser and Bud Light.
+Budweiser has an issue with employee attrition and improving employee morale to gain competitive edge in its industry. We are conducting an analysis using the existing employee data.
+
+
+### Pitfalls of High attrition
+1. Losing talented employee with the company's business knowledge
+2. Replacing with new employee costs
+3. Replaced employee needs to be trained in business
+4. Recruiting costs
+
+### Analysis
+The goal is to ascertain the HR problem of employee attrition and how we can predict the rate through Machine Learning model.
+We were supplied with data set of 1170 rows of data with 34 columns, which we will use to
+do the exploratory data analysis and predic the top 3 attributes that would affect the attrition.
+
+  The following steps will be done in that order.
+
+1. Conduct exploratory data analysis
+2. Minimise the top 10 columns that comprise the model to predict with accuracy
+3. Run a permutation test to get the most effective combination 
+4. Evaluation of the model - we will do several iterations to come up with changing k values
+5. Conclusion and Model
+
+#### <span style="color:INDIANRED"><b>1. Exploratory Data Analysis</span></b>
+
+```{r}
+### Reading the File 
+
+attrition.dataset = read.csv(text = getURL("https://raw.githubusercontent.com/Shangodbole/MSDS_Case_Study2/master/CaseStudy2-data.csv"), head = TRUE, sep = ",", row.names = NULL)
+
+### Creating a Dataset for Analysis
+
+attrition.data <- attrition.dataset
+
+```
+
+#### Data Exploration
+
+#### Report column NA's
+
+* No NA columns found in data
+
+* Scatter plots on finding correlation between attributes
+
+#### Deleting the Columns that do not have much Variance 
+
+```{r}
+# Data that does not change much and does not seem very relevant from the initial look at the file 
+
+attrition.data$Over18 <- NULL
+attrition.data$EmployeeCount <- NULL
+attrition.data$StandardHours <- NULL
+attrition.data$EmployeeNumber <- NULL
+attrition.data$Rand <- NULL
+attrition.data$ID <- NULL
+```
+
+
+#### Finding what Variables are Co-related 
+
+```{r}
+#This function searches through a correlation matrix and returns a vector of 
+corr_matrix=cor(attrition.data[sapply(attrition.data,is.numeric)]) 
+
+#integers corresponding to columns to remove to reduce pair-wise correlations.
+
+highCorr = findCorrelation(corr_matrix, cutoff=0.70, names = TRUE)
+
+highCorr
+
+#Using Pairs comparison to find correlation
+#Correlation diagram
+
+pairs (~ MonthlyIncome + MonthlyRate + HourlyRate ,
+       data = attrition.data ,col=4, main="fig1: Correlation-Income, MonthlyRate and Hourly rate")
+
+pairs (~EducationField + EnvironmentSatisfaction #+ Gender,
+      ,data = attrition.data ,col=6, main="fig2: Correlation-EducationField and Environment")
+```
+
+
+#### Scatter plots association with Attrition
+1. fig 3: Scatter plot on Income and Work Life Balance with Attrition
+2. fig 4: Scatter plot on Education and Department with Attrition
+
+```{r}
+
+
+gg1 <- ggplot(attrition.data, aes(x=WorkLifeBalance,                                     y=MonthlyIncome, color = Attrition)) + 
+       geom_point() + 
+         labs(subtitle="fig3:Income vs Work Life Balance", 
+          y="Income", 
+          x="WorkLife Balance", 
+          title="Scatterplot")
+
+plot(gg1)
+
+# Attrition per Education & department 
+gg2 <- ggplot(attrition.data, aes(x=Education, y=Department, color = Attrition)) + 
+  geom_point() + 
+    labs(subtitle="fig4:Education and Department", 
+       y="Department", 
+       x="Education", 
+       title="Scatterplot")
+
+plot(gg2)
+```
+
+
+#### Plots to show the Attrition based on monthly income and Job levels.
+Following are violin plots that show attrition
+1. Monthly income
+2. Monthly income and Job level.
+
+```{r}
+
+#GG histogram/density between monthly income, and attrition
+ 
+gg3 <- ggplot(attrition.data, aes(x=MonthlyIncome, fill = Attrition, color = Attrition)) +
+  geom_histogram(binwidth = 500, aes(y=..density..)) +
+  geom_density(alpha=.2,fill="#FF6666") +
+  labs(title="plot5:MonthlyIncome and Attrition",
+       y="Density",
+       x="MonthlyIncome",
+       subtitle="Histogram / Density")
+ 
+plot(gg3)
+
+#scatter plot between monthly income, JobLevel and attrition
+gg4 <- ggplot(attrition.data, aes(x=attrition.data$JobLevel , y=attrition.data$MonthlyIncome, color = Attrition)) + 
+  geom_point() + 
+    labs(subtitle="fig6:Monthly Income and Joblevel",
+       y="JobLevel",
+       x="Monthly Income",
+       title="Scatterplot")
+plot(gg4)
+
+```
+#Various plots to show Attrition and explanatory variables such as Income, Age, Years of service, Marital status and Years in service with company
+1. Bar plot on Years at company and Income level
+2. Box plot on Age and attrition
+3. Scatter plot on Years at company and Age
+4. Box plot on Years Since Last promotion and Attrition
+5. Jitter plot on Marital Status and Attrition
+```{r}
+# Plot to show Years at company and Income attrition.
+
+grad <- scales::seq_gradient_pal("blue", "blue")(seq(0,1,length.out=100))
+
+ggplot(attrition.data, aes(x=reorder(attrition.data$YearsAtCompany, -attrition.data$YearsAtCompany), y=attrition.data$MonthlyIncome, fill=Attrition)) +
+  geom_bar(stat='identity', position='dodge') +
+  labs(title=" fig7: Years at company and income level", x="Years in service", y="Monthly Income") +
+  theme(plot.title = element_text(hjust=0.5), axis.text.x=element_text(angle=90, size=7), 
+        legend.position="none") +     
+  scale_fill_manual(values=grad)
+
+#boxplot between Age and attrition
+gg5 <- ggplot(attrition.data, aes(x=Attrition, y=Age, color = Attrition)) + 
+  geom_boxplot() + 
+    labs(subtitle="fig8:Age and Attrition",
+       y="Age",
+       x="Attrition",
+       title="Box Plot")
+plot(gg5)
+
+# Scatter plot on Years at company and Age
+ggplot(attrition.data, aes(x=YearsAtCompany, y=Age, color=YearsAtCompany)) + 
+  geom_point(size=1.3, na.rm=TRUE) + 
+ # geom_smooth(method=lm, na.rm=TRUE, se=FALSE, color="blue") +
+  labs(title="fig9:Years at company and Age", x="Years at Company", y="Age of Employee") +
+  theme(plot.title = element_text(hjust=0.5), legend.position="none") +
+  scale_color_gradient(low = "#ffbf00", high = "blue")
+
+# Years Since Last promotion and Attrition
+gg6 <- ggplot(attrition.data, aes(y=YearsSinceLastPromotion, x=Attrition, color = Attrition)) + 
+  geom_boxplot() + 
+    labs(subtitle="fig10:Years Since Last promotion and Attrition",
+       y="Years Since last promotion",
+       x="Attrition",
+       title="Box Plot")
+plot(gg6)
+
+# Jitter plot on Marital Status and Attrition
+
+gg7 <- ggplot(attrition.data, aes(x=MaritalStatus, y=Attrition, color = Attrition)) + 
+  geom_jitter() + 
+    labs(subtitle="fig11:Marital Status and Attrition",
+       y="Attrition",
+       x="Marital Status",
+       title="Jitter Plot")
+plot(gg7)
+
+```
+
+
+#### Summary: Elimination of columns not affecting the outcome for training set
+
+<!-- We eliminate the columns which have no variance. -->
+<!-- a. Over18 has no variability, all are Y. -->
+<!-- b. EmployeeCount has no variability - all are 1. -->
+<!-- c. StandardHours has no variability - all are 80. -->
+<!-- d. Employee Number is an identifier. -->
+<!-- e. Rand is a column generated and unused in the model -->
+<!-- f. Years at Company has high co-relation with Years in Curr Role -->
+<!-- g. Total Working Years has a very high co-relation with monthly income -->
+<!-- h. Years With Current Manager has a very high co-relation with Years in Curr Role -->
+
+```{r}
+
+## Removing Cols With High Co-relation
+
+attrition.data$YearsAtCompany <- NULL
+attrition.data$TotalWorkingYears <- NULL
+attrition.data$YearsWithCurrManager <- NULL
+
+## Moving Attrition Variable to the last column of the data frame
+
+attrition.data$attr <- attrition.data$Attrition
+
+attrition.data$Attrition <- NULL
+
+### Converting all the non numerical factor columns to numerical factors
+
+
+col.Attrition <- ncol(attrition.data) - 1 
+
+for (i in 1:col.Attrition){
+  
+  
+      column.class <- sapply(attrition.data[1,i,1],class)
+    if (column.class == "factor"){
+      
+      column.numeric <- is.numeric(attrition.data[,i])
+      
+      if(column.numeric == FALSE){
+        attrition.data[,i] <- as.integer(as.factor(attrition.data[,i]))
+        
+      }
+      
+    }
+  
+}
+```
+
+#### <span style="color:INDIANRED"><b>2. Minimise the top 10 columns that comprise the model to predict with accuracy</span></b>
+
+#### Using Importance Function that will tell is which are the most important columns in finding the Attrition
+
+```{r}
+# This optimizes the training model 
+trainc <- trainControl(method="repeatedcv", number=5, repeats=5)
+
+#Creates a model for the learning machine which can be used for predictions on new data.
+
+
+
+fitknn=train(attrition.data[1:col.Attrition], attrition.data$attr, method="knn")
+
+impvars=varImp(fitknn, scale=TRUE, nonpara = TRUE, threshold = 0.6)
+
+impvars
+```
+#### <span style="color:INDIANRED"><b>3. Run a permutation test to get the most effective combination </span></b>
+
+#### Doing a Permutation Test to find the most effective Combination 
+
+```{r}
+
+## Consider top 10 Factors for Further Analysis 
+
+# Now the actual model and prediction
+
+kval <- 5
+
+# Getting the top 10 columns from the Data as per the importance
+
+attr.model <- data.frame(attrition.data[, c(1,19,15,23,16,26,12,11,8,14)]) %>% droplevels()
+attr.model$Attrition <- attrition.data$attr
+
+
+#### Permutation Test to find the higest accuracy 
+
+head(attr.model)
+
+# x = c(1,2,3,4,5,6,7,8)
+
+col.Attrition <- ncol(attr.model)
+
+columns <- seq(1,col.Attrition-1,1)
+
+cols.model <- 5
+
+column.combitations <- combn(columns,cols.model) 
+
+Accuracy.table <- as.data.frame(c(1,2),c("A","B"))
+
+combinations <- ncol(column.combitations)
+
+samplesize_attrition = nrow(attr.model)
+samplesize_attrition
+
+train_perc = .75
+train_indices = sample(seq(1,samplesize_attrition,length = samplesize_attrition),train_perc*samplesize_attrition)
+Train.Attrition.data = attr.model[train_indices,]
+Test.Attrition.data  = attr.model[-train_indices,]
+
+nrow(Train.Attrition.data)
+nrow(Test.Attrition.data)
+
+for (i in 1:combinations){ 
+  
+  classify.Attrition.data <- Train.Attrition.data
+  test.classify.Attrition.data <- Test.Attrition.data
+  
+  for (j in 1:cols.model){
+    
+    column.class <- sapply(classify.Attrition.data[1,column.combitations[j,i],1],class)
+    if (column.class == "factor"){
+      
+      column.numeric <- is.numeric(classify.Attrition.data[,column.combitations[j,i]])
+      
+      if(column.numeric == FALSE){
+        classify.Attrition.data[,column.combitations[j,i]] <- as.integer(as.factor(classify.Attrition.data[,column.combitations[j,i]]))
+        test.classify.Attrition.data[,column.combitations[j,i]] <- as.integer(as.factor(test.classify.Attrition.data[,column.combitations[j,i]]))
+        
+      }
+      
+    }
+    
+  }
+  
+  cols.knn <- column.combitations[,i]
+  
+  
+  results = class::knn(classify.Attrition.data[,cols.knn],
+                       test.classify.Attrition.data[,cols.knn],
+                       classify.Attrition.data$Attrition,
+                       k=kval)
+  
+  test.classify.Attrition.data$predictedAttrition <- results
+  
+  table(test.classify.Attrition.data$Attrition,test.classify.Attrition.data$predictedAttrition)
+  
+  cm <- confusionMatrix(table(test.classify.Attrition.data$Attrition,test.classify.Attrition.data$predictedAttrition))
+  
+  Accuracy.table[i,1] <- cm$overall[1]
+  Accuracy.table[i,2] <- paste(cols.knn,collapse = " ")
+  
+  if (is.integer(i/100) == TRUE){
+    Sys.sleep(1)
+  }
+}
+
+colnames(Accuracy.table) <- c("Accuracy","Column Num")
+
+Accuracy.table<-arrange(Accuracy.table,desc(Accuracy.table$Accuracy))
+
+head(Accuracy.table)
+
+```
+
+
+#### <span style="color:INDIANRED"><b>4. Evaluation of the model - we will do several iterations to come up with changing k values </span></b>
+
+#### The combination of the KNN Model:
+####1. Age
+####2. Overtime
+####3. Job Level
+####4. Enviromnment Satisfaction 
+####5. Job Satisfaction
+
+####gave us the best results!!!
+
+
+####
+
+#### <span style="color:INDIANRED"><b> 5. Conclusion and Model </span></b>
+#### Submitting the Files and Validation
+
+```{r}
+
+#### Converting Overtime Column to Int
+
+attrition.data$OverTime <- as.integer(as.factor(attrition.data$OverTime))
+
+training <- attrition.dataset
+
+samplesize_attrition = nrow(training)
+ 
+train_perc = .75
+ 
+train_indices = sample(seq(1,samplesize_attrition,length = samplesize_attrition),train_perc*samplesize_attrition)
+ 
+dfTrain = as.data.frame(training[train_indices,]) %>% droplevels()
+ 
+dfVal  = as.data.frame(training[-train_indices,]) %>% droplevels()
+
+dfTrain$OverTime <- as.integer(as.factor(dfTrain$OverTime))
+dfVal$OverTime <- as.integer(as.factor(dfVal$OverTime))
+
+#Write CSV file to destination folder
+ 
+write.csv(dfTrain, file ="dfTrain.csv")
+ 
+write.csv(dfVal, file="dfVal.csv")
+
+
+
+
+
+
+  results = class::knn(dfTrain[c(2,12,16,18,24)],
+                       dfVal[c(2,12,16,18,24)],
+                       dfTrain$Attrition,
+                       k=kval)
+
+
+dfVal$PredictedAttrition <- results
+ 
+table(dfVal$Attrition,dfVal$PredictedAttrition)
+ 
+#Confushion Matrix creation
+ 
+cm <- caret::confusionMatrix(table(dfVal$Attrition,dfVal$PredictedAttrition))
+ 
+cmhd<-head(cm$table)
+ 
+kable(cmhd, row.names=FALSE, caption="Table 1: Confushion Matrix showing prediction") %>% kable_styling(bootstrap_options="bordered")
+ 
+cm
+ 
+model_accuracy_knn=sum(dfVal$PredictedAttrition == dfVal$Attrition)/nrow(dfVal)
+ 
+model_accuracy_knn
+ 
+dfPreds <- data.frame(dfVal$ID,dfVal$PredictedAttrition)
+ 
+colnames(dfPreds) <- c("ID","PredictedAttrition")
+ 
+write.csv(dfPreds, file="dfPreds.csv")
+  
+```
+
+```{r}
+
+```
+
+
